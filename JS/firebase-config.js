@@ -7,7 +7,7 @@ const firebaseConfig = {
     messagingSenderId: "856762365647",
     appId: "1:856762365647:web:9089379c117568363a29ba",
     measurementId: "G-0359MXDQMJ",
-    messagingVapidKey: "" // Add Firebase Console > Cloud Messaging > Web Push certificate key pair
+    messagingVapidKey: "BGNcp-NP8Atf5E1-bhnRtuT2Wgft12G6XNtcjuoK0QfKr_viki7h7DSC68W26W_e8tvJgYsVFUX34c6IEW8XnNY" // Public Web Push (VAPID) key only
 };
 
 // ImgBB API Key
