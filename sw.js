@@ -8,25 +8,18 @@
  *     • The fetch handler now also handles SPA navigations correctly (mode 'navigate')
  *       by caching the response before passing it through.
  */
-const CACHE_VERSION = 'v33.1';
+const CACHE_VERSION = 'v35';
 const APP_CACHE = `app-${CACHE_VERSION}`;
 const CDN_CACHE = `cdn-${CACHE_VERSION}`;
+const APP_BASE_URL = self.registration.scope;
+const appAsset = path => new URL(String(path).replace(/^\/+/, ''), APP_BASE_URL).href;
 
 // App shell — fingerprinted by SW cache name. URLs MUST NOT carry ?v= query strings.
 const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/icon-maskable-512.png',
-  '/apple-touch-icon.png',
-  '/og-image.png',
-  '/CSS/style.css',
-  '/JS/firebase-config.js',
-  '/JS/fcm.js',
-  '/JS/app.js',
-  '/JS/admin.js'
+  appAsset(''), appAsset('index.html'), appAsset('manifest.json'),
+  appAsset('icon-192.png'), appAsset('icon-512.png'), appAsset('icon-maskable-512.png'),
+  appAsset('CSS/style.css'), appAsset('JS/firebase-config.js'), appAsset('JS/fcm.js'),
+  appAsset('JS/app.js'), appAsset('JS/admin.js')
 ];
 
 // Vendored assets served via CDN. Cached on first use (stale-while-revalidate).
@@ -152,7 +145,7 @@ self.addEventListener('fetch', event => {
         if (cached) return cached;
         // For navigation requests try the shell index.
         if (mode === 'navigate') {
-          const shell = await caches.match('/index.html');
+          const shell = await caches.match(appAsset('index.html'));
           if (shell) return shell;
         }
         return new Response('', { status: 504, statusText: 'Offline' });

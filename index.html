@@ -55,8 +55,8 @@
     </noscript>
 
     <!-- Styles -->
-    <link rel="preload" href="CSS/style.css?v=33" as="style">
-    <link rel="stylesheet" href="CSS/style.css?v=33">
+    <link rel="preload" href="CSS/style.css?v=35" as="style">
+    <link rel="stylesheet" href="CSS/style.css?v=35">
 
     <!-- Schema.org -->
     <script type="application/ld+json">
@@ -152,7 +152,7 @@
                     <i class="fas fa-eye text-gold"></i> <span id="visitorCountHeader">...</span>
                 </div>
                 <!-- Theme toggle moved to hamburger menu (mainNav) -->
-                <button class="btn btn-sm btn-outline" onclick="shareContent('الدورة الرمضانية بششتا', location.origin)" aria-label="مشاركة الدورة" title="مشاركة الدورة" style="padding:7px 10px"><i class="fas fa-share-nodes"></i></button>
+                <button class="btn btn-sm btn-outline" onclick="shareContent('الدورة الرمضانية بششتا', location.href.split('#')[0])" aria-label="مشاركة الدورة" title="مشاركة الدورة" style="padding:7px 10px"><i class="fas fa-share-nodes"></i></button>
                 <button class="btn btn-sm btn-outline" id="enableNotifications" onclick="enableTournamentNotifications()" aria-label="تفعيل إشعارات البطولة" title="تفعيل إشعارات البطولة" style="padding:7px 10px"><i class="fas fa-bell"></i></button>
                 <button class="menu-toggle" id="menuToggle" aria-label="فتح القائمة الرئيسية">
                     <i class="fas fa-bars"></i>
@@ -222,6 +222,11 @@
         <i class="fas fa-arrow-up"></i>
     </button>
 
+    <script>
+      window.APP_BASE_URL = new URL('.', window.location.href).href;
+      window.APP_BASE_PATH = new URL(window.APP_BASE_URL).pathname;
+    </script>
+
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js" defer></script>
@@ -230,27 +235,31 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-functions-compat.js" defer></script>
 
     <!-- App Scripts -->
-    <script src="JS/firebase-config.js?v=33" defer></script>
-    <script src="JS/fcm.js?v=33" defer></script>
-    <script src="JS/app.js?v=33" defer></script>
+    <script src="JS/firebase-config.js?v=35" defer></script>
+    <script src="JS/fcm.js?v=35" defer></script>
+    <script src="JS/app.js?v=35" defer></script>
     <script defer>
       document.addEventListener('DOMContentLoaded', () => {
-        if (window.Capacitor?.isNativePlatform?.()) import('./JS/native-push.bundle.js');
+        if (window.Capacitor?.isNativePlatform?.()) {
+          const button = document.getElementById('enableNotifications');
+          if (button) button.title = 'تفعيل إشعارات التطبيق';
+          window.__nativePushReady = import('./JS/native-push.bundle.js');
+        }
       });
     </script>
 
     <script>
         // PWA - One-time cache purge + Register new Service Worker
-        if ('serviceWorker' in navigator) {
+        if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
             // Step 1: Wipe ALL old caches once
-            if (window.caches && !sessionStorage.getItem('cache_cleared_v33')) {
+            if (window.caches && !sessionStorage.getItem('cache_cleared_v35')) {
                 caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
-                sessionStorage.setItem('cache_cleared_v33', '1');
+                sessionStorage.setItem('cache_cleared_v35', '1');
             }
             // Step 2: Unregister old SWs then register fresh
             navigator.serviceWorker.getRegistrations().then(regs => {
-                navigator.serviceWorker.register('/sw.js?v=33')
-                    .then(reg => console.log('SW v33 Registered!', reg.scope))
+                navigator.serviceWorker.register(new URL('sw.js?v=35', window.APP_BASE_URL).href)
+                    .then(reg => console.log('SW v35 Registered!', reg.scope))
                     .catch(err => console.error('SW Registration Failed!', err));
             });
         }
