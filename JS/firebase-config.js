@@ -25,7 +25,7 @@ const functions = firebase.functions();
 // IndexedDB persistence layer without "failed-precondition" errors.
 //
 // Also set cacheSizeBytes to UNLIMITED so Firestore doesn't auto-evict data.
-db.settings({ cacheSizeBytes: 50 * 1024 * 1024 });
+db.settings({ cacheSizeBytes: 50 * 1024 * 1024, merge: true });
 
 db.enablePersistence({ synchronizeTabs: true })
   .catch((err) => {
