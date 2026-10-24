@@ -30,7 +30,14 @@ async function handleAdminLogin(e) {
     isAdminLoggedIn = true;
     navigateTo('#/admin/dashboard');
   } catch (error) {
-    err.textContent = error.code === 'functions/permission-denied' ? 'كلمة المرور غير صحيحة أو لم يتم إعداد الإدارة على الخادم.' : 'تعذر الدخول: ' + error.message;
+    const hints = {
+      'functions/permission-denied': 'كلمة المرور غير صحيحة، أو أن كلمة ADMIN_PASSWORD على الخادم مختلفة.',
+      'functions/not-found': 'وظيفة تسجيل الإدارة غير منشورة على Firebase بعد.',
+      'functions/unavailable': 'خادم Firebase غير متاح الآن. تحقق من نشر Cloud Functions والاتصال.',
+      'auth/operation-not-allowed': 'فعّل تسجيل الدخول المجهول Anonymous في Firebase Authentication.',
+      'auth/unauthorized-domain': 'أضف waleeed-amr.github.io إلى Authorized domains في Firebase Authentication.'
+    };
+    err.textContent = hints[error.code] || 'تعذر الدخول: ' + error.message;
     err.style.display = 'block'; document.getElementById('adminPassInput').value = '';
     btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول'; btn.disabled = false;
   }
@@ -593,18 +600,65 @@ async function sendTournamentPush() {
 
 // ========== SEASONS ==========
 async function adminSeasons() {
-  const c = document.getElementById('adminInner'); c.innerHTML = '<div class="admin-loading"><i class="fas fa-futbol fa-spin-roll"></i></div>'; let seasons = [];
-  try { const s = await db.collection('seasons').get(); seasons = s.docs.map(d => ({ id: d.id, ...d.data() })) } catch (e) { }
-  c.innerHTML = `<div class="admin-page-header"><button class="btn btn-primary" onclick="openSeasonModal()"><i class="fas fa-plus"></i> إضافة موسم</button></div>
-  <div class="admin-cards-grid">${seasons.length > 0 ? seasons.map(s => `<div class="admin-item-card" style="text-align:center"><h3 style="font-size:1.2rem;color:var(--gold)">${s.name || s.year || '-'}</h3>
-    <span class="admin-badge ${s.active ? 'badge-green' : 'badge-red'}" style="margin-top:12px">${s.active ? '✅ موسم نشط' : '📦 أرشيف'}</span>
-    <div class="admin-item-actions" style="margin-top:16px;justify-content:center"><button class="btn btn-sm ${s.active ? 'btn-outline' : 'btn-primary'}" onclick="toggleSeason('${s.id}',${!s.active})"><i class="fas fa-${s.active ? 'archive' : 'play'}"></i> ${s.active ? 'أرشفة' : 'تفعيل'}</button><button class="btn btn-sm btn-danger" onclick="delDoc('seasons','${s.id}',adminSeasons)"><i class="fas fa-trash"></i></button></div>
-  </div>`).join('') : '<div style="grid-column:1/-1">' + emptyHTML('fas fa-calendar-alt', 'لا توجد مواسم') + '</div>'}</div>`
+  const c = document.getElementById('adminInner');
+  c.innerHTML = '<div class="admin-loading"><i class="fas fa-futbol fa-spin-roll"></i> جاري تحميل المواسم...</div>';
+  let seasons = [];
+  try {
+    const snap = await db.collection('seasons').get();
+    seasons = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (b.year || 0) - (a.year || 0));
+  } catch (error) { }
+  const active = seasons.find(season => season.active);
+  window._adminActiveSeason = active || null;
+  const archived = seasons.filter(season => season.archiveReady);
+  c.innerHTML = `<div class="card" style="margin-bottom:18px">
+    <h3 style="color:var(--gold);margin-bottom:8px"><i class="fas fa-calendar-plus"></i> إدارة مواسم البطولة</h3>
+    <p class="text-muted">إنشاء دورة جديدة يحفظ نسخة قراءة فقط من بيانات الدورة الحالية، ثم يبدأ الدورة الجديدة ببيانات فرق ومباريات وإحصائيات فارغة.</p>
+    ${active ? `<p><strong>الدورة الحالية:</strong> ${escapeHTML(active.name || active.year || '')}</p>` : '<p class="text-muted">لا توجد دورة نشطة. إنشاء أول دورة سيحفظ البيانات الحالية كأرشيف قبل البدء.</p>'}
+    <button class="btn btn-primary" onclick="openNewSeasonModal()"><i class="fas fa-plus"></i> أرشفة الحالية وإنشاء دورة جديدة</button>
+  </div>
+  <h3 class="section-title">الدورات المؤرشفة (${archived.length})</h3>
+  ${archived.length ? `<div class="admin-cards-grid">${archived.map(season => `<div class="admin-item-card" style="text-align:center">
+    <div style="font-size:2rem">🏆</div><h4 style="color:var(--gold)">${escapeHTML(season.name || 'دورة رمضانية')}</h4><p class="text-muted">${season.year || ''}</p>
+    <a class="btn btn-sm btn-outline" href="#/archive/${season.id}"><i class="fas fa-eye"></i> معاينة الأرشيف</a>
+  </div>`).join('')}</div>` : emptyHTML('fas fa-box-archive', 'لم يتم أرشفة أي دورة بعد')}`;
 }
 
-function openSeasonModal() { showModal('إضافة موسم', `<form onsubmit="saveSeason(event)"><div class="form-group"><label>اسم الموسم</label><input type="text" id="sName" required placeholder="مثال: رمضان 2025"></div><div class="form-group"><label>السنة</label><input type="number" id="sYear" value="2025"></div><div class="form-group"><label><input type="checkbox" id="sActive" checked> موسم نشط</label></div><button type="submit" class="btn btn-primary" style="width:100%"><i class="fas fa-save"></i> حفظ</button></form>`) }
-async function saveSeason(e) { e.preventDefault(); try { await db.collection('seasons').add({ name: document.getElementById('sName').value, year: +document.getElementById('sYear').value, active: document.getElementById('sActive').checked, createdAt: new Date().toISOString() }); showToast('تم الحفظ ✅'); closeModal(); adminSeasons() } catch (err) { showToast('خطأ: ' + err.message) } }
-async function toggleSeason(id, val) { try { await db.collection('seasons').doc(id).update({ active: val }); showToast('تم التحديث ✅'); adminSeasons() } catch (e) { showToast('خطأ') } }
+function openNewSeasonModal() {
+  const year = new Date().getFullYear();
+  const active = window._adminActiveSeason || {};
+  showModal('أرشفة الدورة وإنشاء دورة جديدة', `<form onsubmit="createNewSeason(event)">
+    ${active.id ? '' : `<div class="form-group"><label>اسم الدورة الحالية التي سأحفظها في الأرشيف</label><input id="archiveSeasonName" maxlength="80" placeholder="مثال: الدورة الرمضانية ${year}"></div>
+    <div class="form-group"><label>سنة الدورة الحالية</label><input id="archiveSeasonYear" type="number" min="2000" max="2200" value="${year}" required></div>`}
+    <div class="form-group"><label>اسم الدورة الجديدة</label><input id="newSeasonName" required maxlength="80" placeholder="مثال: الدورة الرمضانية 2027"></div>
+    <div class="form-group"><label>السنة</label><input id="newSeasonYear" type="number" min="2000" max="2200" value="${year + 1}" required></div>
+    <div class="card" style="margin:12px 0"><strong style="color:var(--yellow)"><i class="fas fa-box-archive"></i> قبل البدء بالدورة الجديدة</strong><p class="text-muted" style="margin-top:6px">سيتم حفظ الفرق واللاعبين والمباريات والأهداف والبطاقات والأخبار واللقطات والتعليقات في الأرشيف. بعدها تصبح بيانات الدورة الجديدة فارغة.</p></div>
+    <button id="createSeasonBtn" class="btn btn-primary" style="width:100%"><i class="fas fa-box-archive"></i> احفظ الأرشيف وابدأ الدورة</button>
+  </form>`);
+}
+async function createNewSeason(event) {
+  event.preventDefault();
+  const name = document.getElementById('newSeasonName').value.trim();
+  const year = Number(document.getElementById('newSeasonYear').value);
+  if (!name || !Number.isInteger(year)) { showToast('اكتب اسم الدورة وسنتها'); return; }
+  if (!confirm('سيتم حفظ نسخة كاملة من بيانات الدورة الحالية ثم تفريغ بيانات الفرق والمباريات للدورة الجديدة. نكمل؟')) return;
+  const button = document.getElementById('createSeasonBtn');
+  button.disabled = true; button.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> جاري حفظ الأرشيف...';
+  try {
+    const archiveName = document.getElementById('archiveSeasonName')?.value.trim();
+    const archiveYear = Number(document.getElementById('archiveSeasonYear')?.value);
+    await firebase.functions().httpsCallable('createTournamentSeason')({ name, year, archiveName, archiveYear });
+    showToast('تم حفظ الأرشيف وبدأت الدورة الجديدة ✅');
+    window.location.reload();
+  } catch (error) {
+    button.disabled = false; button.innerHTML = '<i class="fas fa-box-archive"></i> احفظ الأرشيف وابدأ الدورة';
+    const detail = error.code === 'functions/permission-denied'
+      ? 'حساب الإدارة غير مفعّل على الخادم.'
+      : error.code === 'functions/not-found' || error.code === 'functions/unavailable'
+        ? 'خدمة المواسم غير منشورة بعد. انشر Cloud Functions أولاً.'
+        : error.message;
+    showToast('تعذر إنشاء الدورة: ' + detail);
+  }
+}
 
 // ========== PLAYER PHOTO APPROVALS ==========
 async function adminPlayerPhotos() {

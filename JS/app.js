@@ -378,7 +378,7 @@ async function renderArchiveSeason(seasonId, section = 'overview') {
         return `<div class="card"><h3 style="color:var(--gold)">${escapeHTML(team.name)}</h3><p class="text-muted">${players.length} لاعب</p><p>${players.map(player => `${escapeHTML(player.name)}${player.goals ? ` · ${player.goals}⚽` : ''}`).join('<br>') || 'لا توجد أسماء لاعبين محفوظة.'}</p></div>`;
       }).join('') || '<p class="text-muted">لا توجد فرق محفوظة.</p>'}</div>`;
     } else {
-      content = data.news.length ? `<div class="grid-2">${data.news.map(item => `<article class="card"><h3 style="color:var(--gold)">${escapeHTML(item.title || 'خبر')}</h3><p>${escapeHTML(item.body || '').replace(/\\n/g, '<br>')}</p><small class="text-muted">${formatDate(item.date)}</small></article>`).join('')}</div>` : '<p class="text-muted">لا توجد أخبار محفوظة.</p>';
+      content = data.news.length ? `<div class="grid-2">${data.news.map(item => `<article class="card"><h3 style="color:var(--gold)">${escapeHTML(item.title || 'خبر')}</h3><p>${escapeHTML(item.body || '').replace(/\n/g, '<br>')}</p><small class="text-muted">${formatDate(item.date)}</small></article>`).join('')}</div>` : '<p class="text-muted">لا توجد أخبار محفوظة.</p>';
     }
     updateSEO(`أرشيف ${season.name || season.year || ''}`, 'عرض نتائج وبيانات دورة رمضانية سابقة');
     app.innerHTML = `<div class="page-content"><div class="container"><section class="section">
@@ -1207,7 +1207,7 @@ async function postComment(newsId) {
   if (!name || !text) { showToast('يرجى كتابة اسمك والتعليق'); return }
   localStorage.setItem('profile_name', name);
   try {
-    await db.collection('comments').add({ newsId, name, text, createdAt: new Date().toISOString() });
+    await db.collection('comments').add({ newsId, name, text, createdAt: new Date().toISOString(), uid: auth.currentUser?.uid || '' });
     showToast('تم إضافة تعليقك ✅'); document.getElementById('commentText').value = '';
     document.getElementById('commentList').innerHTML = await loadCommentsHTML(newsId);
   } catch (e) { showToast('حدث خطأ: ' + e.message) }
