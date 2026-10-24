@@ -55,8 +55,8 @@
     </noscript>
 
     <!-- Styles -->
-    <link rel="preload" href="CSS/style.css?v=35" as="style">
-    <link rel="stylesheet" href="CSS/style.css?v=35">
+    <link rel="preload" href="CSS/style.css?v=36" as="style">
+    <link rel="stylesheet" href="CSS/style.css?v=36">
 
     <!-- Schema.org -->
     <script type="application/ld+json">
@@ -237,9 +237,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-functions-compat.js" defer></script>
 
     <!-- App Scripts -->
-    <script src="JS/firebase-config.js?v=35" defer></script>
-    <script src="JS/fcm.js?v=35" defer></script>
-    <script src="JS/app.js?v=35" defer></script>
+    <script src="JS/firebase-config.js?v=36" defer></script>
+    <script src="JS/fcm.js?v=36" defer></script>
+    <script src="JS/app.js?v=36" defer></script>
     <script defer>
       document.addEventListener('DOMContentLoaded', () => {
         if (window.Capacitor?.isNativePlatform?.()) {
@@ -254,14 +254,14 @@
         // PWA - One-time cache purge + Register new Service Worker
         if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
             // Step 1: Wipe ALL old caches once
-            if (window.caches && !sessionStorage.getItem('cache_cleared_v35')) {
+            if (window.caches && !sessionStorage.getItem('cache_cleared_v36')) {
                 caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
-                sessionStorage.setItem('cache_cleared_v35', '1');
+                sessionStorage.setItem('cache_cleared_v36', '1');
             }
             // Step 2: Unregister old SWs then register fresh
             navigator.serviceWorker.getRegistrations().then(regs => {
-                navigator.serviceWorker.register(new URL('sw.js?v=35', window.APP_BASE_URL).href)
-                    .then(reg => console.log('SW v35 Registered!', reg.scope))
+                navigator.serviceWorker.register(new URL('sw.js?v=36', window.APP_BASE_URL).href)
+                    .then(reg => console.log('SW v36 Registered!', reg.scope))
                     .catch(err => console.error('SW Registration Failed!', err));
             });
         }
