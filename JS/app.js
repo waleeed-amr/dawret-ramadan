@@ -301,6 +301,13 @@ async function router() {
   document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('active', a.getAttribute('data-page') === (page || 'home')));
   updateBottomNav(page || 'home');
   document.getElementById('mainNav').classList.remove('open');
+  if (page === 'archive') {
+    if (param) await renderArchiveSeason(param, parts[2] || 'overview');
+    else await renderArchiveList();
+    animatePageIn();
+    window.scrollTo(0, 0);
+    return;
+  }
   await loadAllData();
   switch (page) {
     case 'standings': renderStandings(); break; case 'matches': renderMatches(); break; case 'match': renderMatchDetail(param); break;
@@ -312,6 +319,76 @@ async function router() {
   }
   animatePageIn();
   window.scrollTo(0, 0);
+}
+
+// ============ SEASON ARCHIVE (READ ONLY) ============
+async function renderArchiveList() {
+  const app = document.getElementById('app');
+  updateSEO('أرشيف الدورات', 'تصفح نتائج وإحصائيات الدورات الرمضانية السابقة');
+  app.innerHTML = '<div class="page-content"><div class="container"><section class="section"><div class="admin-loading">جاري تحميل الأرشيف...</div></section></div></div>';
+  try {
+    const snapshot = await db.collection('seasons').where('archiveReady', '==', true).get();
+    const seasons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (b.year || 0) - (a.year || 0));
+    app.innerHTML = `<div class="page-content"><div class="container"><section class="section">
+      <div class="section-header"><h2 class="section-title"><i class="fas fa-box-archive"></i> أرشيف الدورات</h2></div>
+      <p class="text-muted mb-3">الدورات السابقة محفوظة للعرض، وتقدر ترجع لنتائجها وفرقها وأخبارها.</p>
+      ${seasons.length ? `<div class="admin-cards-grid">${seasons.map(season => `<a class="admin-item-card" href="#/archive/${season.id}" style="text-decoration:none;color:inherit">
+        <div style="font-size:2rem">🏆</div><h3 style="color:var(--gold)">${escapeHTML(season.name || 'دورة رمضانية')}</h3>
+        <p class="text-muted">${season.year || ''}</p><span class="admin-badge badge-blue">عرض الأرشيف <i class="fas fa-arrow-left"></i></span>
+      </a>`).join('')}</div>` : emptyHTML('fas fa-box-archive', 'لسه مفيش دورات مؤرشفة')}
+    </section></div></div>`;
+  } catch (error) {
+    app.innerHTML = `<div class="page-content"><div class="container">${emptyHTML('fas fa-triangle-exclamation', 'تعذر تحميل الأرشيف')}</div></div>`;
+  }
+}
+
+async function renderArchiveSeason(seasonId, section = 'overview') {
+  const app = document.getElementById('app');
+  app.innerHTML = '<div class="page-content"><div class="container"><section class="section"><div class="admin-loading">جاري تحميل الدورة...</div></section></div></div>';
+  try {
+    const seasonSnap = await db.collection('seasons').doc(seasonId).get();
+    const archiveRef = db.collection('seasonArchive').doc(seasonId);
+    const archiveSnap = await archiveRef.get();
+    if (!seasonSnap.exists || !archiveSnap.exists || archiveSnap.data().status !== 'complete') throw new Error('archive-missing');
+    const season = seasonSnap.data();
+    const collectionNames = ['teams', 'players', 'matches', 'goals', 'cards', 'news'];
+    const snapshots = await Promise.all(collectionNames.map(name => archiveRef.collection(name).get()));
+    const data = Object.fromEntries(collectionNames.map((name, index) => [name, snapshots[index].docs.map(doc => ({ id: doc.id, ...doc.data() }))]));
+    data.matches.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    const teamById = Object.fromEntries(data.teams.map(team => [team.id, team]));
+    const standings = calcStandings(data.teams, data.matches);
+    const tab = ['overview', 'matches', 'teams', 'news'].includes(section) ? section : 'overview';
+    const tabs = [['overview', 'ملخص الدورة'], ['matches', 'المباريات والنتائج'], ['teams', 'الفرق واللاعبون'], ['news', 'الأخبار']];
+    const tabNav = tabs.map(([id, label]) => `<a class="btn btn-sm ${tab === id ? 'btn-primary' : 'btn-outline'}" href="#/archive/${seasonId}/${id}">${label}</a>`).join('');
+    let content = '';
+    if (tab === 'overview') {
+      const championMatch = data.matches.find(match => match.stage === 'final' && match.status === 'finished');
+      const champion = championMatch ? teamById[championMatch.scoreA > championMatch.scoreB ? championMatch.teamAId : championMatch.teamBId] : null;
+      const scorers = [...data.players].sort((a, b) => (b.goals || 0) - (a.goals || 0)).slice(0, 5);
+      content = `<div class="dashboard-stats">
+        ${[["fa-users", data.teams.length, 'الفرق'], ["fa-user-tag", data.players.length, 'اللاعبون'], ["fa-futbol", data.matches.length, 'المباريات'], ["fa-bullseye", data.goals.length, 'الأهداف']].map(([icon, value, label]) => `<div class="stat-card"><div class="stat-icon"><i class="fas ${icon}"></i></div><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`).join('')}
+      </div>${champion ? `<div class="card mt-3" style="text-align:center"><div style="font-size:2rem">🏆</div><h3 style="color:var(--gold)">بطل ${escapeHTML(season.name || 'الدورة')}: ${escapeHTML(champion.name)}</h3></div>` : ''}
+      <h3 class="section-title mt-3">الترتيب النهائي</h3>${standings.length ? `<div class="table-responsive"><table class="admin-table"><thead><tr><th>#</th><th>الفريق</th><th>لعب</th><th>فاز</th><th>تعادل</th><th>خسر</th><th>له</th><th>عليه</th><th>النقاط</th></tr></thead><tbody>${standings.map((team, index) => `<tr><td>${index + 1}</td><td>${escapeHTML(team.name)}</td><td>${team.played}</td><td>${team.won}</td><td>${team.drawn}</td><td>${team.lost}</td><td>${team.gf}</td><td>${team.ga}</td><td><strong>${team.points}</strong></td></tr>`).join('')}</tbody></table></div>` : '<p class="text-muted">لا توجد نتائج محفوظة.</p>'}
+      <h3 class="section-title mt-3">أبرز الهدافين</h3><div class="grid-3">${scorers.map(player => `<div class="card"><strong>${escapeHTML(player.name)}</strong><p class="text-muted">${escapeHTML(teamById[player.teamId]?.name || '')} · ${player.goals || 0} هدف</p></div>`).join('') || '<p class="text-muted">لا توجد بيانات هدافين.</p>'}</div>`;
+    } else if (tab === 'matches') {
+      content = data.matches.length ? `<div class="table-responsive"><table class="admin-table"><thead><tr><th>الفريق الأول</th><th>النتيجة</th><th>الفريق الثاني</th><th>التاريخ</th><th>الحالة</th></tr></thead><tbody>${data.matches.map(match => `<tr><td>${escapeHTML(teamById[match.teamAId]?.name || '—')}</td><td><strong>${match.scoreA ?? '—'} - ${match.scoreB ?? '—'}</strong></td><td>${escapeHTML(teamById[match.teamBId]?.name || '—')}</td><td>${formatDate(match.date)}</td><td>${match.status === 'finished' ? 'انتهت' : match.status === 'live' ? 'مباشر' : 'قادمة'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="text-muted">لا توجد مباريات محفوظة.</p>';
+    } else if (tab === 'teams') {
+      content = `<div class="grid-3">${data.teams.map(team => {
+        const players = data.players.filter(player => player.teamId === team.id);
+        return `<div class="card"><h3 style="color:var(--gold)">${escapeHTML(team.name)}</h3><p class="text-muted">${players.length} لاعب</p><p>${players.map(player => `${escapeHTML(player.name)}${player.goals ? ` · ${player.goals}⚽` : ''}`).join('<br>') || 'لا توجد أسماء لاعبين محفوظة.'}</p></div>`;
+      }).join('') || '<p class="text-muted">لا توجد فرق محفوظة.</p>'}</div>`;
+    } else {
+      content = data.news.length ? `<div class="grid-2">${data.news.map(item => `<article class="card"><h3 style="color:var(--gold)">${escapeHTML(item.title || 'خبر')}</h3><p>${escapeHTML(item.body || '').replace(/\\n/g, '<br>')}</p><small class="text-muted">${formatDate(item.date)}</small></article>`).join('')}</div>` : '<p class="text-muted">لا توجد أخبار محفوظة.</p>';
+    }
+    updateSEO(`أرشيف ${season.name || season.year || ''}`, 'عرض نتائج وبيانات دورة رمضانية سابقة');
+    app.innerHTML = `<div class="page-content"><div class="container"><section class="section">
+      <a class="btn btn-sm btn-outline mb-3" href="#/archive"><i class="fas fa-arrow-right"></i> كل الدورات</a>
+      <div class="section-header"><h2 class="section-title"><i class="fas fa-box-archive"></i> ${escapeHTML(season.name || 'الدورة المؤرشفة')} ${season.year || ''}</h2><span class="admin-badge badge-blue">أرشيف للعرض</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">${tabNav}</div><div class="card">${content}</div>
+    </section></div></div>`;
+  } catch (error) {
+    app.innerHTML = `<div class="page-content"><div class="container"><section class="section">${emptyHTML('fas fa-triangle-exclamation', 'الدورة غير موجودة أو أرشيفها لم يكتمل')}<a href="#/archive" class="btn btn-outline mt-3">العودة للأرشيف</a></section></div></div>`;
+  }
 }
 
 // ============ MATCH CARD ============
@@ -734,7 +811,7 @@ function renderTeamDetail(teamId) {
         ${s.form && s.form.length > 0 ? `<div class="team-hero-form">${s.form.slice(-5).map(f => `<span class="form-indicator form-${f.toLowerCase()}">${f === 'W' ? 'ف' : f === 'D' ? 'ت' : 'خ'}</span>`).join('')}</div>` : ''}
 
         <div class="team-hero-actions">
-          <button class="btn btn-sm btn-outline" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="shareContent('فريق ${team.name} - الدورة الرمضانية بششتا', 'https://dawaretramadan.netlify.app/#/team/${teamId}')"><i class="fas fa-share-alt"></i> مشاركة</button>
+          <button class="btn btn-sm btn-outline" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="shareContent('فريق ${team.name} - الدورة الرمضانية بششتا', '${window.location.href.split('#')[0]}#/team/${teamId}')"><i class="fas fa-share-alt"></i> مشاركة</button>
 
         </div>
       </div>
@@ -832,7 +909,7 @@ async function renderPlayer(playerId) {
   document.getElementById('app').innerHTML = `<div class="page-content"><div class="container"><section class="section">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <a href="${team ? '#/team/' + team.id : '#/teams'}" class="btn btn-sm btn-outline"><i class="fas fa-arrow-right"></i> العودة</a>
-      <button class="btn btn-sm btn-outline" onclick="shareContent('اللاعب ${player.name} - الدورة الرمضانية بششتا', 'https://dawaretramadan.netlify.app/#/player/${playerId}')"><i class="fas fa-share-alt"></i> مشاركة</button>
+      <button class="btn btn-sm btn-outline" onclick="shareContent('اللاعب ${player.name} - الدورة الرمضانية بششتا', '${window.location.href.split('#')[0]}#/player/${playerId}')"><i class="fas fa-share-alt"></i> مشاركة</button>
     </div>
 
     <!-- FIFA STYLE CARD PREMIUM -->
@@ -1665,7 +1742,7 @@ function loadAdminScript() {
   return new Promise((resolve) => {
     if (_adminScriptLoaded) { resolve(); return; }
     const s = document.createElement('script');
-    s.src = 'JS/admin.js?v=33';
+    s.src = new URL('JS/admin.js?v=35', window.APP_BASE_URL).href;
     s.onload = () => { _adminScriptLoaded = true; resolve(); };
     s.onerror = () => { showToast('فشل تحميل لوحة الإدارة'); resolve(); };
     document.head.appendChild(s);

@@ -20,7 +20,7 @@ async function enableTournamentNotifications() {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') { showToast('لم يتم السماح بالإشعارات'); return; }
     await ensureAnonymousAuth().catch(e => { if (e.code !== 'auth/operation-not-allowed') throw e; });
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    const registration = await navigator.serviceWorker.register(new URL('firebase-messaging-sw.js', window.APP_BASE_URL).href);
     const messaging = firebase.messaging();
     const token = await messaging.getToken({ vapidKey: firebaseConfig.messagingVapidKey, serviceWorkerRegistration: registration });
     if (!token) throw new Error('لم يصدر Firebase رمز تسجيل لهذا الجهاز');

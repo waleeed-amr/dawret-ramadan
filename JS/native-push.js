@@ -16,6 +16,6 @@ PushNotifications.addListener('registration', async ({ value: token }) => {
 });
 PushNotifications.addListener('registrationError', error => console.error('Native push registration failed', error));
 PushNotifications.addListener('pushNotificationActionPerformed', ({ notification }) => {
-  const url = notification.data?.url || '/';
-  window.location.href = url.startsWith('/') ? url : `/${url}`;
+  const url = notification.data?.url || './';
+  window.location.href = new URL(url, window.location.href).href;
 });
