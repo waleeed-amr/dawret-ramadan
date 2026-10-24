@@ -8,7 +8,7 @@
  *     • The fetch handler now also handles SPA navigations correctly (mode 'navigate')
  *       by caching the response before passing it through.
  */
-const CACHE_VERSION = 'v35';
+const CACHE_VERSION = 'v36';
 const APP_CACHE = `app-${CACHE_VERSION}`;
 const CDN_CACHE = `cdn-${CACHE_VERSION}`;
 const APP_BASE_URL = self.registration.scope;
@@ -87,12 +87,23 @@ async function tryPut(cacheName, req, res) {
 // =========================================================================
 
 self.addEventListener('install', e => {
-  // Take over immediately so the user's first reload uses v33.1.
+  // Take over immediately so the user's first reload uses this service worker.
   self.skipWaiting();
   e.waitUntil(
     caches.open(APP_CACHE)
       .then(async cache => {
-        await cache.addAll(APP_SHELL).catch(() => { /* best-effort */ });
+        // addAll is atomic: a single 404 can reject the whole app-shell cache.
+        // Cache assets independently so a deployment race or one missing file
+        // cannot prevent the remaining shell from being available offline.
+        await Promise.all(APP_SHELL.map(async assetUrl => {
+          try {
+            const response = await fetch(assetUrl, { cache: 'reload' });
+            if (response.ok) await cache.put(assetUrl, response);
+            else console.warn(`[SW ${CACHE_VERSION}] Skipping ${response.status}: ${assetUrl}`);
+          } catch (error) {
+            console.warn(`[SW ${CACHE_VERSION}] Could not cache ${assetUrl}`, error);
+          }
+        }));
         const cdn = await caches.open(CDN_CACHE);
         await Promise.all(CDN_ASSETS.map(u => cdn.add(u).catch(() => {})));
       })
