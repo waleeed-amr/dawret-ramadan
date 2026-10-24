@@ -10,14 +10,18 @@ const firebaseConfig = {
   appId: '1:856762365647:web:9089379c117568363a29ba'
 };
 firebase.initializeApp(firebaseConfig);
+const appBaseUrl = self.registration.scope;
 firebase.messaging().onBackgroundMessage(({ notification, data }) => {
   self.registration.showNotification(notification?.title || data?.title || 'الدورة الرمضانية بششتا', {
-    body: notification?.body || data?.body || '', icon: '/icon-192.png', badge: '/icon-192.png', data: { url: data?.url || '/' }
+    body: notification?.body || data?.body || '',
+    icon: new URL('icon-192.png', appBaseUrl).href,
+    badge: new URL('icon-192.png', appBaseUrl).href,
+    data: { url: data?.url || './' }
   });
 });
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  const url = new URL(event.notification.data?.url || './', self.registration.scope).href;
   event.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
     const existing = list.find(client => new URL(client.url).origin === self.location.origin);
     return existing ? existing.navigate(url).then(() => existing.focus()) : clients.openWindow(url);
