@@ -7,7 +7,7 @@
 3. فعّل **Authentication > Sign-in method > Anonymous** في مشروع Firebase `kearshehta`.
 4. من **Project settings > General > Your apps** تأكد أن تطبيق الويب الموجود يطابق إعدادات `JS/firebase-config.js`.
 5. من **Authentication > Settings > Authorized domains** أضف نطاق الاستضافة الفعلي لو مش موجود.
-6. فعّل خدمة Cloud Functions عند أول نشر (قد يطلب Firebase تفعيل الفوترة على المشروع).
+6. مشروعك ظاهر على خطة Spark. نشر Cloud Functions يتطلب ترقية المشروع إلى خطة Blaze وربط حساب فوترة؛ توجد حصة استخدام مجانية للدوال على Blaze، لكن قد تُفرض رسوم على الاستخدام أو التخزين، فاضبط تنبيهات ميزانية قبل النشر.
 7. من **Firebase Console > Project settings > Cloud Messaging > Web configuration** أنشئ Web Push key pair. انسخ **المفتاح العام VAPID فقط** إلى `messagingVapidKey` داخل `JS/firebase-config.js`.
 8. من Google Cloud فعّل **Firebase Cloud Messaging API** و **Firebase Installations API** للمشروع.
 9. اضبط كلمة مرور الإدارة كـ secret: `firebase functions:secrets:set ADMIN_PASSWORD`.
