@@ -1742,7 +1742,7 @@ function loadAdminScript() {
   return new Promise((resolve) => {
     if (_adminScriptLoaded) { resolve(); return; }
     const s = document.createElement('script');
-    s.src = new URL('JS/admin.js?v=35', window.APP_BASE_URL).href;
+    s.src = new URL('JS/admin.js?v=36', window.APP_BASE_URL).href;
     s.onload = () => { _adminScriptLoaded = true; resolve(); };
     s.onerror = () => { showToast('فشل تحميل لوحة الإدارة'); resolve(); };
     document.head.appendChild(s);
