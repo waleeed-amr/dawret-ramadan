@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /#/admin
+
+User-agent: Googlebot
+Allow: /
+
+Crawl-delay: 1
+
+Sitemap: https://dawaretramadan.netlify.app/sitemap.xml

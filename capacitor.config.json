@@ -1,0 +1,14 @@
+{
+  "appId": "com.dawret.ramadan",
+  "appName": "الدورة الرمضانية بششتا",
+  "webDir": "www",
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
+    }
+  }
+}

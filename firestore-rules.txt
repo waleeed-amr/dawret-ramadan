@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && request.auth.token.admin == true; }
+
+    match /teams/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /players/{id} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photo']) && request.resource.data.photo is string && request.resource.data.photo.size() <= 2048);
+    }
+    match /matches/{id} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mvpVotes']);
+    }
+    match /goals/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /cards/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /news/{id} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions', 'poll']);
+    }
+    match /comments/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['newsId','name','text','createdAt','uid'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 50
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500;
+      allow update, delete: if isAdmin();
+    }
+    match /messages/{id} {
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() <= 50
+        && request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 500;
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']));
+      allow delete: if isAdmin();
+    }
+    match /seasons/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /statistics/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /userProfiles/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.name is string && request.resource.data.name.size() <= 50;
+      allow delete: if isAdmin();
+    }
+    match /playerPhotoRequests/{id} {
+      allow read: if isAdmin();
+      allow create: if signedIn() && request.resource.data.keys().hasOnly(['playerId','playerName','photo','status','createdAt','uid'])
+        && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+    match /settings/{id} { allow read: if id != 'admin'; allow write: if isAdmin(); }
+    match /highlights/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /pushTokens/{id} { allow read, write: if false; }
+    match /notificationCampaigns/{id} { allow read, write: if isAdmin(); }
+  }
+}
